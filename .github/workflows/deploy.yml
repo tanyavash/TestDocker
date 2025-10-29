@@ -1,4 +1,5 @@
-name: Build & Deploy to AWS Elastic Beanstalk 
+name: Build & Deploy to AWS Elastic Beanstalk
+
 on:
   push:
     branches:
@@ -7,9 +8,6 @@ on:
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
-
-    
-    if: contains(github.event.head_commit.message, 'final')
 
     steps:
       - name: Checkout source
@@ -35,7 +33,9 @@ jobs:
           echo "Running Docker build..."
           docker build -t testapp .
 
+      
       - name: Deploy to Elastic Beanstalk
+        if: contains(github.event.head_commit.message, 'final')
         run: |
           eb init "${{ secrets.EB_APP_NAME }}" --region "${{ secrets.AWS_REGION }}" --platform "Docker"
           eb use "${{ secrets.EB_ENV_NAME }}"
