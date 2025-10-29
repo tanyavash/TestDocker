@@ -1,19 +1,21 @@
-name: Deploy to AWS Elastic Beanstalk
-
+name: Build & Deploy to AWS Elastic Beanstalk 
 on:
   push:
     branches:
-      - main  # Triggers deployment on every push to main branch
+      - main
 
 jobs:
-  deploy:
+  build-deploy:
     runs-on: ubuntu-latest
 
+    
+    if: contains(github.event.head_commit.message, 'final')
+
     steps:
-      - name: Checkout source code
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Set up Python (needed for EB CLI)
+      - name: Set up Python (for EB CLI)
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
@@ -28,8 +30,33 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Build container
+        run: |
+          echo "Running Docker build..."
+          docker build -t testapp .
+
       - name: Deploy to Elastic Beanstalk
         run: |
           eb init "${{ secrets.EB_APP_NAME }}" --region "${{ secrets.AWS_REGION }}" --platform "Docker"
           eb use "${{ secrets.EB_ENV_NAME }}"
           eb deploy
+
+      
+      - name: Send email on failure
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: " Deployment Failed for ${{ github.repository }}"
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.MAIL_USERNAME }}
+          body: |
+            The latest deployment failed 
+            Repository: ${{ github.repository }}
+            Commit: ${{ github.event.head_commit.message }}
+            Author: ${{ github.actor }}
+            Check logs: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
